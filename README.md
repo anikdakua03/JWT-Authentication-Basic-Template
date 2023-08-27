@@ -6,3 +6,5 @@ It is a template for JWT authentication setup for Dotnet web application
 2. Authorization in Swagger UI with bearer token
 3. Verification and confirmation of email from user
 4. Refreshing tokens in some certain time
+5. Sending email ability to user using SMTP
+6. Forgot/reset password via mail 
