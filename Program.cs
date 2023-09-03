@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Net.Http.Headers;
 using Microsoft.OpenApi.Models;
 using System.Text;
 
@@ -55,11 +56,13 @@ var key = Encoding.ASCII.GetBytes(builder.Configuration.GetSection("JwtConfig:Se
 
 var tokenValidationParameters = new TokenValidationParameters()
 {
+    ValidAudience = builder.Configuration.GetSection("JwtConfig:Audience").Value!,
+    ValidIssuer = builder.Configuration.GetSection("JwtConfig:Issuer").Value!,
     ValidateIssuerSigningKey = true,
     IssuerSigningKey = new SymmetricSecurityKey(key),
-    ValidateIssuer = false, // it must be true , for local machine issue purpose keeping it false
-    ValidateAudience = false,
-    RequireExpirationTime = false, // keeping it false for dev purpose , need to be refreshed after some certain time
+    ValidateIssuer = true, 
+    ValidateAudience = true,
+    RequireExpirationTime = true,
     ValidateLifetime = true,
 };
 
@@ -80,31 +83,45 @@ builder.Services.AddAuthentication(options =>
 // adding dependecy for tokenValidationParameters
 builder.Services.AddSingleton(tokenValidationParameters);
 
-builder.Services.AddDefaultIdentity<IdentityUser>(options =>
+builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 {
-    options.SignIn.RequireConfirmedAccount = false;
+    options.SignIn.RequireConfirmedAccount = true;
 })
-    .AddEntityFrameworkStores<AppDbContext>();
+    .AddEntityFrameworkStores<AppDbContext>()
+    .AddDefaultTokenProviders();
 
 // SMTP mail service
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddTransient<IEmailService, EmailService>();
+builder.Services.AddTransient<ITeamsService, TeamsService>();
+
+//  when using session log out
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(2);
+});
 
 var app = builder.Build();
 
+app.UseSession();
+
+app.UseCors(builder =>
+{
+    builder.SetIsOriginAllowed(_ => true)
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .AllowCredentials();
+});
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("v1/swagger.json", "JWTAuth V1");
+        c.SwaggerEndpoint("v1/swagger.json", "JWTAuth Basic Template V1");
     });
 }
-app.UseCors(builder => builder
-    .AllowAnyOrigin()
-    .AllowAnyMethod()
-    .AllowAnyHeader());
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -1,5 +1,6 @@
 ﻿using JWTAuth.Data;
 using JWTAuth.Models;
+using JWTAuth.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -8,77 +9,77 @@ using Microsoft.EntityFrameworkCore;
 
 namespace JWTAuth.Controllers
 {
-    // authorized by particularly JWTAthuentication bearer
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     [Route("api/[controller]")]
     [ApiController]
     public class TeamsController : ControllerBase
     {
-        private readonly AppDbContext _context;
-        public TeamsController(AppDbContext context)
+        private readonly ITeamsService _teamsService;
+        public TeamsController(ITeamsService teamsService)
         {
-            _context = context;
+            _teamsService = teamsService;
+        }
+
+        //[Authorize(Roles = "Admin")]
+        [HttpGet]
+        [Route("GetAllTeams")]
+        public async Task<IActionResult> Get(string userId)
+        {
+            var teams = await _teamsService.Get(userId);
+            if(teams != null)
+            {
+                return Ok(teams);
+            }
+            return BadRequest("User not logged in !!");
         }
 
         [HttpGet]
-        public async Task<IActionResult> Get()
+        [Route("GetTeamById")]
+        public async Task<IActionResult> GetById(string userId, int id)
         {
-            var teams = await _context.Teams.ToListAsync();
-            return Ok(teams);
-        }
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id)
-        {
-            var team = await _context.Teams.FirstOrDefaultAsync(a => a.Id == id);
+            var team = await _teamsService.GetById(userId,id);
+
             if (team == null)
             {
                 return BadRequest($"Not found with {id} this id");
             }
             return Ok(team);
         }
-        
+
+        //[Authorize(Roles = "Admin")]
         [HttpPost]
-        public async Task<IActionResult> AddTeam(Team team)
+        [Route("AddTeam")]
+        public async Task<IActionResult> AddTeam(string userId, Team team)
         {
-            await _context.Teams.AddAsync(team);
-            await _context.SaveChangesAsync();
-            // returning the the created team as result
-            return CreatedAtAction("Get", team.Id, team);
+            var res = await _teamsService.AddTeam(userId, team);
+
+            return Ok(res);
         }
-        
+
+        //[Authorize(Roles = "Admin")]
         [HttpPatch]
-        public async Task<IActionResult> EditTeam(int id, string country)
+        [Route("EditTeam")]
+        public async Task<IActionResult> EditTeam(string userId, int id, string country)
         {
-            var team = await _context.Teams.FirstOrDefaultAsync(a => a.Id == id);
+            var team = await _teamsService.EditTeam(userId, id, country);
             if (team == null)
             {
-                return BadRequest($"Not found with {id} this id");
+                return BadRequest(team);
             }
-            team.Country = country;
-            await _context.SaveChangesAsync();
-            // returning the the created team as result
-            return NoContent();
+            return Ok(team);
         }
-        [HttpDelete]
-        public async Task<IActionResult> DeleteTeam(int id)
-        {
-            try
-            {
-                var team = await _context.Teams.FirstOrDefaultAsync(a => a.Id == id);
-                            if (team == null)
-                            {
-                                return BadRequest($"Not found with {id} this id");
-                            }
-                            _context.Teams.Remove(team);
-                            await _context.SaveChangesAsync();
-                            // returning the the created team as result
-                            return NoContent();
-            }
-            catch (Exception)
-            {
 
-                throw;
-            } 
+        //[Authorize(Roles = "Management")]
+        [HttpDelete]
+        [Route("DeleteTeam")]
+        public async Task<IActionResult> DeleteTeam(string userId, int id)
+        {
+            var team = await _teamsService.DeleteTeam(userId, id);
+            if (team == null)
+            {
+                return BadRequest(team);
+            }
+            return Ok(team);
         }
     }
 }
